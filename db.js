@@ -1,5 +1,3 @@
-const mysql = require("mysql2/promise");
-
 // ESTA ES LA CONEXIÓN A TU BASE DE DATOS
 const mysql = require("mysql2");
 
