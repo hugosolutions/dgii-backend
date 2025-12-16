@@ -1,14 +1,18 @@
 const mysql = require("mysql2/promise");
 
 // ESTA ES LA CONEXIÓN A TU BASE DE DATOS
+const mysql = require("mysql2");
+
+// pool = conexión reutilizable (lo correcto)
 const pool = mysql.createPool({
-    host: "mysql-14beaeb8-hugofernando809-0f75.a.aivencloud.com",
-    user: "avnadmin",
-    password: "AVNS_ubF1LMX6xD_0cCFmfQq",
-    database: "defaultdb",
-    port: 13839,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    port: process.env.DB_PORT,
     waitForConnections: true,
     connectionLimit: 10,
+    queueLimit: 0
 });
 
 module.exports = pool;

@@ -1,6 +1,8 @@
 const express = require("express");
 const app = express();
 const { guardarECF } = require("./ecfRepository");
+const pool = require("./db");
+
 
 
 // Permitir recibir XML y JSON
