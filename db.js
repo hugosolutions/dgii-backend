@@ -1,7 +1,7 @@
-// ESTA ES LA CONEXIÓN A TU BASE DE DATOS
-const mysql = require("mysql2");
+// CONEXIÓN A BASE DE DATOS (PROMISES)
+const mysql = require("mysql2/promise");
 
-// pool = conexión reutilizable (lo correcto)
+// pool = conexión reutilizable
 const pool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
