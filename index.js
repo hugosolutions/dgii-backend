@@ -4,12 +4,17 @@ const { guardarECF } = require("./ecfRepository");
 const pool = require("./db");
 const aprobacionesRoutes = require("./routes/aprobaciones");
 
+// --------------------------------------------------
+// ✅ MIDDLEWARE CORRECTO (CLAVE)
+// --------------------------------------------------
+// JSON SOLO para application/json
+app.use(express.json({ type: "application/json" }));
 
-// Permitir recibir XML y JSON
-app.use(express.text({ type: "*/*" }));
-app.use(express.json());
+// XML SOLO para XML
+app.use(express.text({ type: ["application/xml", "text/xml"] }));
+
+// Rutas de aprobación comercial (JSON)
 app.use(aprobacionesRoutes);
-
 
 // ----------------------------------
 // RUTA DE PRUEBA
@@ -34,26 +39,24 @@ app.get("/fe/autenticacion/api/semilla", (req, res) => {
     res.status(200).send(xmlSemilla);
 });
 
-
-
 // ----------------------------------
 // 1️⃣ AUTENTICACIÓN - VALIDACIÓN CERTIFICADO
 // ----------------------------------
 app.post("/fe/autenticacion/api/validacioncertificado", (req, res) => {
 
     const xmlRespuesta = `
-  <ValidacionCertificado>
-    <estado>OK</estado>
-    <mensaje>Certificado válido</mensaje>
-  </ValidacionCertificado>
-  `;
+<ValidacionCertificado>
+  <estado>OK</estado>
+  <mensaje>Certificado válido</mensaje>
+</ValidacionCertificado>
+`;
 
-    res.set("Content-Type", "application/xml");
+    res.set("Content-Type", "application/xml; charset=utf-8");
     res.status(200).send(xmlRespuesta);
 });
 
 // ----------------------------------
-// 2️⃣ RECEPCIÓN DE E-CF
+// 2️⃣ RECEPCIÓN DE E-CF (XML)
 // ----------------------------------
 const { subirXMLaDrive } = require("./googleDrive");
 const { leerDatosECF } = require("./xmlHelper");
@@ -64,7 +67,7 @@ app.post("/fe/recepcion/api/ecf", async (req, res) => {
 
         console.log("📄 XML recibido");
 
-        // 👇 LEEMOS DATOS DEL XML
+        // Leer datos del XML
         const { rnc, tipo, ncf } = leerDatosECF(xml);
 
         console.log("RNC:", rnc);
@@ -73,12 +76,7 @@ app.post("/fe/recepcion/api/ecf", async (req, res) => {
 
         const nombreArchivo = `${ncf}.xml`;
 
-        await subirXMLaDrive(
-            xml,
-            nombreArchivo,
-            rnc,
-            tipo
-        );
+        await subirXMLaDrive(xml, nombreArchivo, rnc, tipo);
 
         await guardarECF({
             rnc,
@@ -104,50 +102,6 @@ app.post("/fe/recepcion/api/ecf", async (req, res) => {
         });
     }
 });
-
-
-// ----------------------------------
-// 3️⃣ APROBACIÓN COMERCIAL
-// ----------------------------------
-// app.post("/fe/aprobacioncomercial/api/ecf", async (req, res) => {
-//     try {
-//         const xmlEntrada = req.body;
-
-//         // (opcional) aquí luego puedes guardar el XML si quieres
-//         // await guardarAprobacion(xmlEntrada);
-
-//         const xmlRespuesta = `<?xml version="1.0" encoding="utf-8"?>
-// <ACECF>
-//   <DetalleAprobacionComercial>
-//     <Version>1.0</Version>
-//     <RNCEmisor>40224375192</RNCEmisor>
-//     <eNCF>E3100000002</eNCF>
-//     <FechaEmision>${new Date().toISOString()}</FechaEmision>
-//     <MontoTotal>1000.00</MontoTotal>
-//     <RNCComprador>000000000</RNCComprador>
-//     <Estado>APROBADO</Estado>
-//     <DetalleMotivoRechazo></DetalleMotivoRechazo>
-//     <FechaHoraAprobacionComercial>${new Date().toISOString()}</FechaHoraAprobacionComercial>
-//   </DetalleAprobacionComercial>
-// </ACECF>`;
-
-//         res.set("Content-Type", "application/xml; charset=utf-8");
-//         res.status(200).send(xmlRespuesta);
-
-//     } catch (error) {
-//         console.error("❌ Error aprobación comercial:", error);
-
-//         res.status(500).send(`<?xml version="1.0" encoding="utf-8"?>
-// <ACECF>
-//   <DetalleAprobacionComercial>
-//     <Estado>RECHAZADO</Estado>
-//     <DetalleMotivoRechazo>Error interno</DetalleMotivoRechazo>
-//   </DetalleAprobacionComercial>
-// </ACECF>`);
-//     }
-// });
-
-
 
 // ----------------------------------
 const PORT = process.env.PORT || 3000;
