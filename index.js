@@ -2,12 +2,14 @@ const express = require("express");
 const app = express();
 const { guardarECF } = require("./ecfRepository");
 const pool = require("./db");
-
+const aprobacionesRoutes = require("./routes/aprobaciones");
 
 
 // Permitir recibir XML y JSON
 app.use(express.text({ type: "*/*" }));
 app.use(express.json());
+app.use(aprobacionesRoutes);
+
 
 // ----------------------------------
 // RUTA DE PRUEBA
@@ -107,43 +109,44 @@ app.post("/fe/recepcion/api/ecf", async (req, res) => {
 // ----------------------------------
 // 3️⃣ APROBACIÓN COMERCIAL
 // ----------------------------------
-app.post("/fe/aprobacioncomercial/api/ecf", async (req, res) => {
-    try {
-        const xmlEntrada = req.body;
+// app.post("/fe/aprobacioncomercial/api/ecf", async (req, res) => {
+//     try {
+//         const xmlEntrada = req.body;
 
-        // (opcional) aquí luego puedes guardar el XML si quieres
-        // await guardarAprobacion(xmlEntrada);
+//         // (opcional) aquí luego puedes guardar el XML si quieres
+//         // await guardarAprobacion(xmlEntrada);
 
-        const xmlRespuesta = `<?xml version="1.0" encoding="utf-8"?>
-<ACECF>
-  <DetalleAprobacionComercial>
-    <Version>1.0</Version>
-    <RNCEmisor>40224375192</RNCEmisor>
-    <eNCF>E3100000002</eNCF>
-    <FechaEmision>${new Date().toISOString()}</FechaEmision>
-    <MontoTotal>1000.00</MontoTotal>
-    <RNCComprador>000000000</RNCComprador>
-    <Estado>APROBADO</Estado>
-    <DetalleMotivoRechazo></DetalleMotivoRechazo>
-    <FechaHoraAprobacionComercial>${new Date().toISOString()}</FechaHoraAprobacionComercial>
-  </DetalleAprobacionComercial>
-</ACECF>`;
+//         const xmlRespuesta = `<?xml version="1.0" encoding="utf-8"?>
+// <ACECF>
+//   <DetalleAprobacionComercial>
+//     <Version>1.0</Version>
+//     <RNCEmisor>40224375192</RNCEmisor>
+//     <eNCF>E3100000002</eNCF>
+//     <FechaEmision>${new Date().toISOString()}</FechaEmision>
+//     <MontoTotal>1000.00</MontoTotal>
+//     <RNCComprador>000000000</RNCComprador>
+//     <Estado>APROBADO</Estado>
+//     <DetalleMotivoRechazo></DetalleMotivoRechazo>
+//     <FechaHoraAprobacionComercial>${new Date().toISOString()}</FechaHoraAprobacionComercial>
+//   </DetalleAprobacionComercial>
+// </ACECF>`;
 
-        res.set("Content-Type", "application/xml; charset=utf-8");
-        res.status(200).send(xmlRespuesta);
+//         res.set("Content-Type", "application/xml; charset=utf-8");
+//         res.status(200).send(xmlRespuesta);
 
-    } catch (error) {
-        console.error("❌ Error aprobación comercial:", error);
+//     } catch (error) {
+//         console.error("❌ Error aprobación comercial:", error);
 
-        res.status(500).send(`<?xml version="1.0" encoding="utf-8"?>
-<ACECF>
-  <DetalleAprobacionComercial>
-    <Estado>RECHAZADO</Estado>
-    <DetalleMotivoRechazo>Error interno</DetalleMotivoRechazo>
-  </DetalleAprobacionComercial>
-</ACECF>`);
-    }
-});
+//         res.status(500).send(`<?xml version="1.0" encoding="utf-8"?>
+// <ACECF>
+//   <DetalleAprobacionComercial>
+//     <Estado>RECHAZADO</Estado>
+//     <DetalleMotivoRechazo>Error interno</DetalleMotivoRechazo>
+//   </DetalleAprobacionComercial>
+// </ACECF>`);
+//     }
+// });
+
 
 
 // ----------------------------------
