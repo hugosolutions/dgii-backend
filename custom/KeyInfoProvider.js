@@ -3,7 +3,7 @@ const forge = require('node-forge');
 class KeyInfoProvider {
     constructor(certificatePEM) {
         if (!certificatePEM || typeof certificatePEM !== 'string') {
-            throw new Error('certificatePEM inválido');
+            throw new Error('certificatePEM must be a valid PEM string');
         }
         this.certificatePEM = certificatePEM;
     }
@@ -11,16 +11,14 @@ class KeyInfoProvider {
     getKeyInfo(key, prefix) {
         prefix = prefix ? prefix + ':' : '';
 
-        const certBody = forge.pem.decode(this.certificatePEM)[0].body;
-        const certBase64 = forge.util.encode64(certBody);
-
-        return (
-            `<${prefix}X509Data>` +
-            `<${prefix}X509Certificate>` +
-            certBase64 +
-            `</${prefix}X509Certificate>` +
-            `</${prefix}X509Data>`
+        const certBodyInB64 = forge.util.encode64(
+            forge.pem.decode(this.certificatePEM)[0].body
         );
+
+        return `
+<${prefix}X509Data>
+  <${prefix}X509Certificate>${certBodyInB64}</${prefix}X509Certificate>
+</${prefix}X509Data>`;
     }
 
     getKey() {

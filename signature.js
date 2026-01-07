@@ -1,17 +1,13 @@
 const { SignedXml } = require('xml-crypto');
 const { DOMParser } = require('@xmldom/xmldom');
-const Digest = require('./custom/Digest');
 const KeyInfoProvider = require('./custom/KeyInfoProvider');
 
 class Signature {
-    constructor(privateKey, certificatePEM) {
+    constructor(privateKey, certificate) {
         this.privateKey = privateKey;
-        this.certificatePEM = certificatePEM;
+        this.certificate = certificate;
     }
 
-    /**
-     * Limpia espacios y nodos vacíos (OBLIGATORIO DGII)
-     */
     cleanNodes(node) {
         for (let i = 0; i < node.childNodes.length; i++) {
             const child = node.childNodes[i];
@@ -29,9 +25,6 @@ class Signature {
     }
 
     signXml(xml, rootTag) {
-        // 🔴 ESTO ES LO QUE TE FALTABA
-        SignedXml.HashAlgorithms['http://myDigestAlgorithm'] = Digest;
-
         const sig = new SignedXml();
 
         sig.signatureAlgorithm =
@@ -40,17 +33,12 @@ class Signature {
         sig.canonicalizationAlgorithm =
             'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
 
-        sig.keyInfoProvider = new KeyInfoProvider(this.certificatePEM);
+        sig.keyInfoProvider = new KeyInfoProvider(this.certificate);
 
-        // 🔴 EXACTAMENTE IGUAL AL GITHUB
         sig.addReference(
-            `//*[local-name(.)='${rootTag}']`,
+            `//*[local-name()='${rootTag}']`,
             ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-            'http://myDigestAlgorithm',
-            undefined,
-            undefined,
-            undefined,
-            true
+            'http://www.w3.org/2001/04/xmlenc#sha256'
         );
 
         sig.signingKey = this.privateKey;
@@ -58,7 +46,8 @@ class Signature {
         const doc = new DOMParser().parseFromString(xml, 'text/xml');
         this.cleanNodes(doc);
 
-        sig.computeSignature(doc.toString());
+        // ⚠️ usar el XML original
+        sig.computeSignature(xml);
 
         return sig.getSignedXml();
     }
