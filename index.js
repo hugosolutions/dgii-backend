@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 
+// Repos / helpers
 const { guardarECF } = require("./ecfRepository");
 const aprobacionesRoutes = require("./routes/aprobaciones");
 const { multipartXMLParser } = require("./multipart");
@@ -10,7 +11,7 @@ const { leerDatosECF } = require("./xmlHelper");
 const { generarARECF } = require("./senderReceiver");
 
 // --------------------------------------------------
-// ⚠️ SOLO JSON PARA RUTAS JSON (NO XML)
+// ⚠️ SOLO JSON PARA RUTAS JSON
 // --------------------------------------------------
 app.use(express.json({ type: "application/json" }));
 
@@ -43,7 +44,7 @@ app.get("/fe/autenticacion/api/semilla", (req, res) => {
 // 1️⃣ AUTENTICACIÓN - VALIDACIÓN CERTIFICADO
 // ----------------------------------
 app.post("/fe/autenticacion/api/validacioncertificado", (req, res) => {
-    const xmlRespuesta = `
+    const xmlRespuesta = `<?xml version="1.0" encoding="utf-8"?>
 <ValidacionCertificado>
   <estado>OK</estado>
   <mensaje>Certificado válido</mensaje>
@@ -54,7 +55,7 @@ app.post("/fe/autenticacion/api/validacioncertificado", (req, res) => {
 });
 
 // ----------------------------------
-// 2️⃣ RECEPCIÓN DE E-CF (XML) — TAL CUAL GITHUB
+// 2️⃣ RECEPCIÓN DE E-CF (XML) — DGII
 // ----------------------------------
 app.post(
     "/fe/recepcion/api/ecf",
@@ -70,6 +71,7 @@ app.post(
                 throw new Error("XML no recibido");
             }
 
+            // Leer datos del ECF
             const {
                 rncEmisor,
                 rncComprador,
@@ -77,9 +79,11 @@ app.post(
                 ncf
             } = leerDatosECF(xml);
 
+            // Persistencia
             await subirXMLaDrive(xml, `${ncf}.xml`, rncEmisor, tipo);
             await guardarECF({ rnc: rncEmisor, tipo, ncf, xml });
 
+            // 🔐 GENERAR ARECF FIRMADO (TODO ADENTRO)
             const acuseXML = generarARECF(xml, rncComprador);
 
             res.set("Content-Type", "application/xml; charset=utf-8");

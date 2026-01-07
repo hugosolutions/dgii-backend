@@ -2,13 +2,17 @@
 const { DOMParser } = require("@xmldom/xmldom");
 const { js2xml } = require("xml-js");
 
+const { getP12ConfigByRNC } = require("./certStore");
+const P12Reader = require("./p12Reader");
+const Signature = require("./signature");
+
 /**
  * Tipos de e-CF que NO deben recibirse
  */
 const excludedEncfType = ["32", "41", "43", "45", "46", "47"];
 
 /**
- * Estados oficiales DGII
+ * Estados DGII
  */
 const ReceivedStatus = {
     RECIBIDO: "0",
@@ -16,7 +20,7 @@ const ReceivedStatus = {
 };
 
 /**
- * Códigos oficiales DGII
+ * Códigos DGII
  */
 const NoReceivedCode = {
     ERROR_ESPECIFICACION: "1",
@@ -26,15 +30,18 @@ const NoReceivedCode = {
 };
 
 /**
- * Fecha formato ISO (DGII lo acepta)
+ * Fecha DGII: DD-MM-YYYY HH:mm:ss
  */
 function getCurrentFormattedDateTime() {
-    return new Date().toISOString();
+    const d = new Date();
+    const pad = n => n.toString().padStart(2, "0");
+
+    return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ` +
+        `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 /**
- * Genera el Acuse de Recibo (ARECF)
- * El estado inicial es RECIBIDO y se ajusta según validaciones
+ * Genera y FIRMA el ARECF
  */
 function generarARECF(xml, receptorRNC) {
     const parser = new DOMParser();
@@ -43,32 +50,29 @@ function generarARECF(xml, receptorRNC) {
     let estado = ReceivedStatus.RECIBIDO;
     let codigoMotivo;
 
-    // Extraer nodos obligatorios
     const eNCF = xmlDoc.getElementsByTagName("eNCF")[0]?.textContent;
     const TipoeCF = xmlDoc.getElementsByTagName("TipoeCF")[0]?.textContent;
     const RNCEmisor = xmlDoc.getElementsByTagName("RNCEmisor")[0]?.textContent;
     const RNCComprador = xmlDoc.getElementsByTagName("RNCComprador")[0]?.textContent;
 
-    // Validación mínima de estructura
+    // Validaciones mínimas
     if (!eNCF || !TipoeCF || !RNCEmisor || !RNCComprador) {
         estado = ReceivedStatus.NO_RECIBIDO;
         codigoMotivo = NoReceivedCode.ERROR_ESPECIFICACION;
     }
 
-    // Validar tipo de e-CF
     if (TipoeCF && excludedEncfType.includes(TipoeCF)) {
         estado = ReceivedStatus.NO_RECIBIDO;
         codigoMotivo = NoReceivedCode.ERROR_ESPECIFICACION;
     }
 
-    // Validar RNC del receptor
-    if (receptorRNC && RNCComprador && receptorRNC !== RNCComprador) {
+    if (receptorRNC && receptorRNC !== RNCComprador) {
         estado = ReceivedStatus.NO_RECIBIDO;
         codigoMotivo = NoReceivedCode.RNC_NO_CORRESPONDE;
     }
 
-    // Construcción del XML (OFICIAL DGII)
-    const data = {
+    // ARECF sin firma
+    const arecfObj = {
         _declaration: {
             _attributes: { version: "1.0", encoding: "utf-8" }
         },
@@ -85,11 +89,19 @@ function generarARECF(xml, receptorRNC) {
         }
     };
 
-    return js2xml(data, {
+    const arecfXML = js2xml(arecfObj, {
         compact: true,
-        ignoreComment: true,
         spaces: 4
     });
+
+    // 🔐 CARGAR CERTIFICADO DEL RECEPTOR
+    const { p12Path, password } = getP12ConfigByRNC(RNCComprador);
+    const reader = new P12Reader(password);
+    const { key, cert } = reader.getKeyFromFile(p12Path);
+
+    // ✍️ FIRMAR (IGUAL GITHUB)
+    const signer = new Signature(key, cert);
+    return signer.signXml(arecfXML, "ARECF");
 }
 
 module.exports = {
