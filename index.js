@@ -60,48 +60,78 @@ app.post("/fe/autenticacion/api/validacioncertificado", (req, res) => {
 // ----------------------------------
 const { subirXMLaDrive } = require("./googleDrive");
 const { leerDatosECF } = require("./xmlHelper");
+const { generarARECF } = require("./senderReceiver");
 
 app.post("/fe/recepcion/api/ecf", async (req, res) => {
     try {
         const xml = req.body;
 
-        console.log("📄 XML recibido");
+        // 1️⃣ Validación básica
+        if (!xml || typeof xml !== "string") {
+            throw new Error("XML no recibido o formato inválido");
+        }
 
-        // Leer datos del XML
-        const { rnc, tipo, ncf } = leerDatosECF(xml);
+        // 2️⃣ Lectura de datos desde el XML
+        const {
+            rncEmisor,
+            rncComprador,
+            tipo,
+            ncf
+        } = leerDatosECF(xml);
 
-        console.log("RNC:", rnc);
-        console.log("Tipo e-CF:", tipo);
-        console.log("e-NCF:", ncf);
+        // 3️⃣ Validación mínima de datos críticos
+        if (
+            rncEmisor === "ERROR" ||
+            rncComprador === "ERROR" ||
+            ncf === "ERROR"
+        ) {
+            throw new Error("XML malformado o incompleto");
+        }
 
-        const nombreArchivo = `${ncf}.xml`;
+        // ⚠️ VALIDACIÓN FUTURA (multi-tenant)
+        // const cliente = await buscarClientePorRNC(rncComprador);
+        // if (!cliente) {
+        //     throw new Error("RNC receptor no autorizado");
+        // }
 
-        await subirXMLaDrive(xml, nombreArchivo, rnc, tipo);
+        // 4️⃣ Guardar XML original
+        await subirXMLaDrive(xml, `${ncf}.xml`, rncEmisor, tipo);
 
         await guardarECF({
-            rnc,
+            rnc: rncEmisor,
             tipo,
             ncf,
             xml
         });
 
-        return res.status(200).json({
-            estado: "RECIBIDO",
-            rnc,
-            tipo,
-            ncf
-        });
+        // 5️⃣ Generar ARECF oficial DGII
+        const acuseXML = generarARECF(xml, rncComprador);
+
+        // 6️⃣ Responder con XML
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        return res.status(200).send(acuseXML);
 
     } catch (error) {
-        console.error("❌ ERROR COMPLETO:");
-        console.error(error);
+        console.error("❌ ERROR RECEPCIÓN E-CF:", error.message);
 
-        return res.status(500).json({
-            estado: "ERROR",
-            mensaje: "No se pudo procesar el XML"
-        });
+        // ❌ ARECF de error (estructura oficial DGII)
+        const acuseError = `<?xml version="1.0" encoding="utf-8"?>
+<ARECF>
+  <DetalleAcusedeRecibo>
+    <Version>1.0</Version>
+    <Estado>1</Estado>
+    <CodigoMotivoNoRecibido>1</CodigoMotivoNoRecibido>
+    <FechaHoraAcuseRecibo>${new Date().toISOString()}</FechaHoraAcuseRecibo>
+  </DetalleAcusedeRecibo>
+</ARECF>`;
+
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        return res.status(400).send(acuseError);
     }
 });
+
+
+
 
 // ----------------------------------
 const PORT = process.env.PORT || 3000;
