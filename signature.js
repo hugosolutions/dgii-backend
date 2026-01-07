@@ -1,38 +1,16 @@
 const { SignedXml } = require('xml-crypto');
 const { DOMParser } = require('@xmldom/xmldom');
+const Digest = require('./custom/Digest');
+const KeyInfoProvider = require('./custom/KeyInfoProvider');
 
-/**
- * Proveedor de KeyInfo (CERTIFICADO)
- */
-class KeyInfoProvider {
-    constructor(cert) {
-        this.cert = cert;
-    }
-
-    getKeyInfo() {
-        return `<X509Data><X509Certificate>${this.cert
-            .replace('-----BEGIN CERTIFICATE-----', '')
-            .replace('-----END CERTIFICATE-----', '')
-            .replace(/\r?\n|\r/g, '')
-            }</X509Certificate></X509Data>`;
-    }
-
-    getKey() {
-        return null;
-    }
-}
-
-/**
- * Firma XML compatible DGII
- */
 class Signature {
-    constructor(privateKey, certificate) {
+    constructor(privateKey, certificatePEM) {
         this.privateKey = privateKey;
-        this.certificate = certificate;
+        this.certificatePEM = certificatePEM;
     }
 
     /**
-     * Limpia nodos vacíos (REQUERIDO)
+     * Limpia espacios y nodos vacíos (OBLIGATORIO DGII)
      */
     cleanNodes(node) {
         for (let i = 0; i < node.childNodes.length; i++) {
@@ -51,6 +29,9 @@ class Signature {
     }
 
     signXml(xml, rootTag) {
+        // 🔴 ESTO ES LO QUE TE FALTABA
+        SignedXml.HashAlgorithms['http://myDigestAlgorithm'] = Digest;
+
         const sig = new SignedXml();
 
         sig.signatureAlgorithm =
@@ -59,12 +40,17 @@ class Signature {
         sig.canonicalizationAlgorithm =
             'http://www.w3.org/TR/2001/REC-xml-c14n-20010315';
 
-        sig.keyInfoProvider = new KeyInfoProvider(this.certificate);
+        sig.keyInfoProvider = new KeyInfoProvider(this.certificatePEM);
 
+        // 🔴 EXACTAMENTE IGUAL AL GITHUB
         sig.addReference(
-            `//*[local-name()='${rootTag}']`,
+            `//*[local-name(.)='${rootTag}']`,
             ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-            'http://www.w3.org/2001/04/xmlenc#sha256'
+            'http://myDigestAlgorithm',
+            undefined,
+            undefined,
+            undefined,
+            true
         );
 
         sig.signingKey = this.privateKey;
