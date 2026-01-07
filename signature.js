@@ -48,10 +48,27 @@ class Signature {
             digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256'
         });
 
-        const doc = new DOMParser().parseFromString(xml, 'text/xml');
+        // 👇 Limpiar posibles BOM y espacios al inicio/final
+        xml = xml.trim().replace(/^\uFEFF/, '');
+
+        // 👇 Crear parser con manejo de errores
+        const parser = new DOMParser({
+            errorHandler: {
+                warning: () => { },
+                error: () => { },
+                fatalError: (e) => console.error('xmldom fatal:', e)
+            }
+        });
+
+        // 👇 Parsear XML seguro
+        const doc = parser.parseFromString(xml, 'text/xml');
+
+        // 👇 Limpiar nodos vacíos (igual que antes)
         this.cleanNodes(doc);
 
-        sig.computeSignature(doc);
+        // 👇 PASAR el root node a computeSignature
+        sig.computeSignature(doc.documentElement);
+
 
         return sig.getSignedXml();
     }
