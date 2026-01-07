@@ -64,6 +64,10 @@ const { generarARECF } = require("./senderReceiver");
 
 app.post("/fe/recepcion/api/ecf", async (req, res) => {
     try {
+        console.log("📥 HEADERS:", req.headers);
+        console.log("📥 CONTENT-TYPE:", req.headers["content-type"]);
+        console.log("📥 BODY TYPE:", typeof req.body);
+        console.log("📥 BODY RAW:", req.body?.toString?.().slice(0, 500));
         const xml = req.body;
 
         // 1️⃣ Validación básica
