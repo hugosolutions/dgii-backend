@@ -38,8 +38,14 @@ class Signature {
         sig.addReference(
             `//*[local-name()='${rootTag}']`,
             ['http://www.w3.org/2000/09/xmldsig#enveloped-signature'],
-            'http://www.w3.org/2001/04/xmlenc#sha256'
+            'http://www.w3.org/2001/04/xmlenc#sha256',
+            '',
+            '',
+            {
+                digestAlgorithm: 'http://www.w3.org/2001/04/xmlenc#sha256'
+            }
         );
+
 
         sig.signingKey = this.privateKey;
 

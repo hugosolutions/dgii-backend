@@ -57,6 +57,17 @@ app.post("/fe/autenticacion/api/validacioncertificado", (req, res) => {
 // ----------------------------------
 // 2️⃣ RECEPCIÓN DE E-CF (XML) — DGII
 // ----------------------------------
+
+function fechaDGII(date = new Date()) {
+    const pad = (n) => n.toString().padStart(2, '0');
+
+    return `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date
+        .getFullYear()
+        .toString()
+        .slice(-2)} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+
 app.post(
     "/fe/recepcion/api/ecf",
     multipartXMLParser, // 👈 CLAVE
@@ -99,7 +110,7 @@ app.post(
     <Version>1.0</Version>
     <Estado>1</Estado>
     <CodigoMotivoNoRecibido>1</CodigoMotivoNoRecibido>
-    <FechaHoraAcuseRecibo>${new Date().toISOString()}</FechaHoraAcuseRecibo>
+    <FechaHoraAcuseRecibo>${fechaDGII()}</FechaHoraAcuseRecibo>
   </DetalleAcusedeRecibo>
 </ARECF>`);
         }
