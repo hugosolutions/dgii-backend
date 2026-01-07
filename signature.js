@@ -9,8 +9,13 @@ class Signature {
     }
 
     cleanNodes(node) {
+        if (!node || !node.childNodes) return;
+
         for (let i = 0; i < node.childNodes.length; i++) {
             const child = node.childNodes[i];
+
+            if (!child) continue;
+
             if (
                 child.nodeType === 8 ||
                 (child.nodeType === 3 && !/\S/.test(child.nodeValue))
@@ -23,7 +28,7 @@ class Signature {
         }
     }
 
-    signXml(xml, rootTag) {
+    signXml(xml) {
         const sig = new SignedXml({
             signatureAlgorithm:
                 'http://www.w3.org/2001/04/xmldsig-more#rsa-sha256',
@@ -34,9 +39,9 @@ class Signature {
         sig.signingKey = this.privateKey;
         sig.keyInfoProvider = new KeyInfoProvider(this.certificate);
 
-        // ✅ ÚNICA FORMA VÁLIDA
+        // 🔥 EXACTAMENTE COMO C#
         sig.addReference({
-            xpath: `//*[local-name()='${rootTag}']`,
+            uri: '',
             transforms: [
                 'http://www.w3.org/2000/09/xmldsig#enveloped-signature'
             ],
@@ -46,7 +51,6 @@ class Signature {
         const doc = new DOMParser().parseFromString(xml, 'text/xml');
         this.cleanNodes(doc);
 
-        // 🚨 PASAR EL DOCUMENTO, NO STRING
         sig.computeSignature(doc);
 
         return sig.getSignedXml();
