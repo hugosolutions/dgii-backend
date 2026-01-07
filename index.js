@@ -3,6 +3,8 @@ const app = express();
 const { guardarECF } = require("./ecfRepository");
 const pool = require("./db");
 const aprobacionesRoutes = require("./routes/aprobaciones");
+const { multipartXMLParser } = require("./multipart");
+
 
 // --------------------------------------------------
 // ✅ MIDDLEWARE CORRECTO (CLAVE)
@@ -15,6 +17,14 @@ app.use(express.text({ type: ["application/xml", "text/xml"] }));
 
 // Rutas de aprobación comercial (JSON)
 app.use(aprobacionesRoutes);
+
+
+// SOLO JSON para rutas JSON
+app.use(express.json({ type: "application/json" }));
+
+// ❌ NO text/xml global
+// app.use(express.text({ type: ["application/xml", "text/xml"] }));
+
 
 // ----------------------------------
 // RUTA DE PRUEBA
@@ -64,18 +74,15 @@ const { generarARECF } = require("./senderReceiver");
 
 app.post("/fe/recepcion/api/ecf", async (req, res) => {
     try {
-        console.log("📥 HEADERS:", req.headers);
-        console.log("📥 CONTENT-TYPE:", req.headers["content-type"]);
-        console.log("📥 BODY TYPE:", typeof req.body);
-        console.log("📥 BODY RAW:", req.body?.toString?.().slice(0, 500));
         const xml = req.body;
 
-        // 1️⃣ Validación básica
         if (!xml || typeof xml !== "string") {
-            throw new Error("XML no recibido o formato inválido");
+            throw new Error("XML no recibido");
         }
 
-        // 2️⃣ Lectura de datos desde el XML
+        console.log("📄 XML recibido (primeros 300):");
+        console.log(xml.slice(0, 300));
+
         const {
             rncEmisor,
             rncComprador,
@@ -83,43 +90,20 @@ app.post("/fe/recepcion/api/ecf", async (req, res) => {
             ncf
         } = leerDatosECF(xml);
 
-        // 3️⃣ Validación mínima de datos críticos
-        if (
-            rncEmisor === "ERROR" ||
-            rncComprador === "ERROR" ||
-            ncf === "ERROR"
-        ) {
-            throw new Error("XML malformado o incompleto");
-        }
-
-        // ⚠️ VALIDACIÓN FUTURA (multi-tenant)
-        // const cliente = await buscarClientePorRNC(rncComprador);
-        // if (!cliente) {
-        //     throw new Error("RNC receptor no autorizado");
-        // }
-
-        // 4️⃣ Guardar XML original
         await subirXMLaDrive(xml, `${ncf}.xml`, rncEmisor, tipo);
+        await guardarECF({ rnc: rncEmisor, tipo, ncf, xml });
 
-        await guardarECF({
-            rnc: rncEmisor,
-            tipo,
-            ncf,
-            xml
-        });
-
-        // 5️⃣ Generar ARECF oficial DGII
+        // 🔹 EXACTO COMO GITHUB: responder ARECF
         const acuseXML = generarARECF(xml, rncComprador);
 
-        // 6️⃣ Responder con XML
         res.set("Content-Type", "application/xml; charset=utf-8");
         return res.status(200).send(acuseXML);
 
-    } catch (error) {
-        console.error("❌ ERROR RECEPCIÓN E-CF:", error.message);
+    } catch (err) {
+        console.error("❌ ERROR RECEPCIÓN E-CF:", err.message);
 
-        // ❌ ARECF de error (estructura oficial DGII)
-        const acuseError = `<?xml version="1.0" encoding="utf-8"?>
+        res.set("Content-Type", "application/xml; charset=utf-8");
+        return res.status(400).send(`<?xml version="1.0" encoding="utf-8"?>
 <ARECF>
   <DetalleAcusedeRecibo>
     <Version>1.0</Version>
@@ -127,12 +111,10 @@ app.post("/fe/recepcion/api/ecf", async (req, res) => {
     <CodigoMotivoNoRecibido>1</CodigoMotivoNoRecibido>
     <FechaHoraAcuseRecibo>${new Date().toISOString()}</FechaHoraAcuseRecibo>
   </DetalleAcusedeRecibo>
-</ARECF>`;
-
-        res.set("Content-Type", "application/xml; charset=utf-8");
-        return res.status(400).send(acuseError);
+</ARECF>`);
     }
 });
+
 
 
 

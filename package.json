@@ -13,6 +13,7 @@
   "dependencies": {
     "@xmldom/xmldom": "^0.8.11",
     "axios": "^1.13.2",
+    "busboy": "^1.6.0",
     "express": "^5.2.1",
     "fast-xml-parser": "^5.3.3",
     "mysql2": "^3.16.0",
